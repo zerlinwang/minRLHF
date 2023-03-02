@@ -3,7 +3,14 @@ import torch
 import torch.nn.functional as func
 from typing import Callable, Optional
 
-from torch_discounted_cumsum import discounted_cumsum_right
+
+def discounted_cumsum_right(reward, gamma):
+    discounted_return = torch.empty_like(reward[0])
+    tmp_return = torch.zeros_like(reward[0, 0])
+    for t in reversed(range(reward.shape[1])):
+        tmp_return = reward[0, t] + gamma *  tmp_return
+        discounted_return[t] = tmp_return
+    return discounted_return
 
 def default_reward_augmenter(buf: Buffer) -> None:
     buf.reward_augmentation_buffer[:, :] = 0
@@ -122,10 +129,10 @@ class Buffer:
         self.reward_augmenter(self)     # Side effect: Fills augmentation buffer
         self.augmented_reward_buffer = self.reward_buffer + beta * self.reward_augmentation_buffer     # actually augment rewards
         
-        self._compute_critic_targets(gamma)      # Side effect: Fills critic targets buffer
-        self._compute_advantages(gamma, lam)      # Side effect: Fills advantages buffer
+        self._compute_critic_targets(gamma)      # Side effect: Fills critic targets buffer 计算discounted-return（Q），用于训练critic
+        self._compute_advantages(gamma, lam)      # Side effect: Fills advantages buffer 计算GAE，用于训练Actor
         
-        # Normalise advantages to zero mean and variance
+        # Normalise advantages to zero mean and variance adv做一个归一化，利于训练
         mu, sigma = self.advantages_buffer.mean(dim=-1).unsqueeze(-1), self.advantages_buffer.std(dim=-1).unsqueeze(-1)
         self.advantages_buffer = (self.advantages_buffer - mu) / sigma
         
@@ -171,7 +178,7 @@ class Buffer:
             deltas[i] = rewards[i] + gamma*value_estimates[i] for i == 0
         """
         zeord_rewards = self.completion_mask_buffer * self.augmented_reward_buffer
-        padded_value_estimates = func.pad(self.value_estimates_buffer, (1, 0))
+        padded_value_estimates = func.pad(self.value_estimates_buffer, (1, 0))  # 错一位，相同index分别对着value和value_next
         deltas = zeord_rewards \
             + gamma*padded_value_estimates[:, 1:] \
                 - padded_value_estimates[:, :-1]

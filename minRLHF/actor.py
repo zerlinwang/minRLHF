@@ -61,9 +61,9 @@ class Actor:
         # Generate output_mask procedurally (must be a vectorised way)
         output_mask = torch.zeros_like(output_ids)
 
-        start_idx = input_ids.shape[1]
+        start_idx = input_ids.shape[1]  # prompt（包含padding）也会包含在输出里面，作为开始
         for i in range(output_ids.shape[0]):
-            for j in range(start_idx, output_ids.shape[1]):
+            for j in range(start_idx, output_ids.shape[1]): # prompt的地方自动是0
                 if output_ids[i, j] != 50256:
                     output_mask[i,j] = 1
                 else:
@@ -83,14 +83,14 @@ class Actor:
         """
         # Pad input mask to same size as output_mask and OR
         # OR'd mask is now all non padding / eos_tokens
-        ord_mask = logical_or_without_broadcasting(input_mask, output_mask)
+        ord_mask = logical_or_without_broadcasting(input_mask, output_mask) # input和output的padding是False，input和output都是True
         
         # Generate logits by passing through model
-        outputs = self.model(output_ids, attention_mask=ord_mask)
+        outputs = self.model(output_ids, attention_mask=ord_mask)   # 获取自回归输出的logits
         
-        # logits[i, j, k] = outputs.logits[i, j-1, k] for j>0
+        # logits[i, j, k] = outputs.logits[i, j-1, k] for j>0   这里没搞懂，为啥要错位？？？ 我明白了，logits中第i个输出的logits其实对应的是i+1个输出的词的概率！
         # logits[i, 0, k] = 1e10 for k = output_ids[i, 0]
-        # logits[i, 0, k'] = 0 otherwise
+        # logits[i, 0, k'] = 0 otherwise    每句话的第0个词是确定的
         logits = torch.empty_like(outputs.logits)
         logits[:, 1:, :] = outputs.logits[:, :-1, :]
         logits[
@@ -100,7 +100,7 @@ class Actor:
         ] = 1e10
         
         # Collapse logits final dim from vocab -> 1 by
-        # selecting the logit for the token we used
+        # selecting the logit for the token we used 获取每个生成的词对应的log probability
         pi = Categorical(logits=logits)
         logprobs = pi.log_prob(output_ids)
         

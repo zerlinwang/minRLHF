@@ -28,9 +28,9 @@ class MyEnv(Environment):
         ])
         
     def score_generation(self, text: str) -> float:
-        sentiment_scores = reward_model(text)[0]
+        sentiment_scores = reward_model(text)[0]    # 获取句子各种情感的分数
         sentiment_scores = {d['label']: d['score'] for d in sentiment_scores}
-        return sentiment_scores['joy']
+        return sentiment_scores['joy']  # 返回joy对应的情感分数，一个句子对应一个标量
 
 # %%
 tokenizer = AutoTokenizer.from_pretrained('gpt2')
@@ -39,7 +39,7 @@ tokenizer.padding_side = 'left'
 
 model = AutoModelForCausalLM.from_pretrained('gpt2').to('cuda')
 reference = AutoModelForCausalLM.from_pretrained('gpt2').to('cuda')
-critic = AutoModelForTokenClassification.from_pretrained('gpt2', num_labels=1).to('cuda')
+critic = AutoModelForTokenClassification.from_pretrained('gpt2', num_labels=1).to('cuda')   # 借用gpt2的权重初始化一个分类网络（只有一个logits）
 
 # Instantiate envrionment
 env = MyEnv(tokenizer, batch_size=32)

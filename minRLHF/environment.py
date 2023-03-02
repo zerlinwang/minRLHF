@@ -24,7 +24,7 @@ class Environment(ABC):
         full_mask = logical_or_without_broadcasting(input_mask, output_mask)
         texts = []
         for output_id, mask in zip(output_ids, full_mask):
-            ids = output_id.masked_select(mask.to(torch.bool))
+            ids = output_id.masked_select(mask.to(torch.bool))  # mask不为True的删掉了
             texts.append(self.tokenizer.decode(ids, skip_special_tokens=True))
         
         # Score the completions
@@ -35,7 +35,7 @@ class Environment(ABC):
         #   0               otherwise
         idxs = -output_mask.flip(-1).argmax(-1) - 1 # index of last generated token # TODO: Make less cryptic
         rewards = torch.zeros_like(output_mask, dtype=torch.float32)
-        rewards[list(range(rewards.shape[0])), idxs] = torch.as_tensor(scores)
+        rewards[list(range(rewards.shape[0])), idxs] = torch.as_tensor(scores)  # 相当于给一个稀疏奖励，只有句子说完之后才有一个非0奖励，其它都是0
         
         return rewards
         

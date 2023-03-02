@@ -151,7 +151,7 @@ class PPOTrainer:
         return loss, {'mae': mae.item()}
     
     
-    def get_rollout(self):
+    def get_rollout(self):  # ppo采样方式，每一个timestep依据概率采样
         with torch.no_grad():
             data = {}   # we store working variables in here for easier device management
             
@@ -168,7 +168,7 @@ class PPOTrainer:
             
             # Rewards computed by environment on cpu
             data = gather_dict(data, torch.device('cpu'), keys=['completion_ids', 'prompt_mask', 'completion_mask'])
-            data['reward'] = self.env.get_rewards(data['completion_ids'], data['prompt_mask'], data['completion_mask'])
+            data['reward'] = self.env.get_rewards(data['completion_ids'], data['prompt_mask'], data['completion_mask']) # 稀疏奖励 [B, T]
             
             # Compute critic value estimates on critic device
             data = gather_dict(data, self.critic.device, keys=['completion_ids', 'prompt_mask', 'completion_mask'])
@@ -179,7 +179,7 @@ class PPOTrainer:
             data['prompt_mask'] = torch.nn.functional.pad(data['prompt_mask'], (0,pad_length))
             
             # Do some key mangling to make the return dict map to our buffer correctly
-            data.pop('prompt_ids')
+            data.pop('prompt_ids')  # 因为prompt ids已经存在completion ids里面了，把他当做state即可
             data['state'] = data.pop('completion_ids')
             
             return data
