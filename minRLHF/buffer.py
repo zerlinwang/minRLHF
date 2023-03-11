@@ -88,7 +88,9 @@ class Buffer:
         # assert pi_0.shape[2] == self.vocab_size
         # assert pi_t.shape[2] == self.vocab_size
         
-        # ? Do we need to deepcopy here?
+        # We don't need copy here. 
+        # When state_buffer and state are both ndarray, 'copy' operation will be executed rather than 'view'
+        # ref: https://note.nkmk.me/en/python-numpy-view-copy-shares-memory/
         self.state_buffer[self.ptr:self.ptr+batch_size] = state
         self.prompt_mask_buffer[self.ptr:self.ptr+batch_size] = prompt_mask
         self.completion_mask_buffer[self.ptr:self.ptr+batch_size] = completion_mask
